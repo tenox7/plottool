@@ -18,6 +18,13 @@
 #include <sys/sysctl.h>
 #include <mach/mach.h>
 #include <mach/mach_time.h>
+#elif defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__)
+#include <sys/sysctl.h>
+#include <sys/types.h>
+#include <time.h>
+#if defined(__NetBSD__) || defined(__OpenBSD__)
+#include <uvm/uvm_extern.h>
+#endif
 #elif defined(__unix__) || defined(__unix) || defined(unix)
 #include <time.h>
 #endif
@@ -195,6 +202,114 @@ bool get_system_stats(system_stats_t *stats) {
 
     vm_deallocate(mach_task_self(), (vm_address_t)cpu_info,
                   num_cpu_info * sizeof(integer_t));
+
+    return true;
+#elif defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__)
+    static uint64_t prev_idle = 0;
+    static uint64_t prev_total = 0;
+    static uint64_t prev_system = 0;
+
+    /* Get memory info using sysctl */
+    size_t size = sizeof(uint64_t);
+
+    /* Get total physical memory */
+    if (sysctlbyname("hw.physmem", &stats->total_memory, &size, NULL, 0) != 0) {
+        stats->total_memory = 0;
+    }
+
+    /* Get free memory - varies by BSD variant */
+#ifdef __FreeBSD__
+    /* FreeBSD: get free pages and convert to bytes */
+    uint64_t free_pages = 0;
+    size_t page_size = 0;
+    size = sizeof(free_pages);
+    if (sysctlbyname("vm.stats.vm.v_free_count", &free_pages, &size, NULL, 0) == 0) {
+        size = sizeof(page_size);
+        if (sysctlbyname("vm.stats.vm.v_page_size", &page_size, &size, NULL, 0) == 0) {
+            stats->free_memory = free_pages * page_size;
+        }
+    }
+#elif defined(__NetBSD__) || defined(__OpenBSD__)
+    /* NetBSD/OpenBSD: use uvmexp structure */
+    struct uvmexp uvmexp;
+    size = sizeof(uvmexp);
+    if (sysctlbyname("vm.uvmexp", &uvmexp, &size, NULL, 0) == 0) {
+        stats->free_memory = uvmexp.free * uvmexp.pagesize;
+    }
+#endif
+
+    /* Get CPU statistics using sysctl */
+#ifdef __FreeBSD__
+    /* FreeBSD has kern.cp_time */
+    long cp_time[5];
+    size = sizeof(cp_time);
+    if (sysctlbyname("kern.cp_time", cp_time, &size, NULL, 0) == 0) {
+        uint64_t user = cp_time[0];
+        uint64_t nice = cp_time[1];
+        uint64_t system = cp_time[2];
+        uint64_t interrupt = cp_time[3];
+        uint64_t idle = cp_time[4];
+
+        uint64_t total_ticks = user + nice + system + interrupt + idle;
+        uint64_t system_ticks = system + interrupt;
+
+        if (prev_total != 0) {
+            uint64_t idle_diff = idle - prev_idle;
+            uint64_t total_diff = total_ticks - prev_total;
+            uint64_t system_diff = system_ticks - prev_system;
+
+            if (total_diff > 0) {
+                stats->cpu_usage = 100.0 * (1.0 - (double)idle_diff / total_diff);
+                stats->system_cpu_usage = 100.0 * (double)system_diff / total_diff;
+            } else {
+                stats->cpu_usage = 0.0;
+                stats->system_cpu_usage = 0.0;
+            }
+        } else {
+            stats->cpu_usage = 0.0;
+            stats->system_cpu_usage = 0.0;
+        }
+
+        prev_idle = idle;
+        prev_total = total_ticks;
+        prev_system = system_ticks;
+    }
+#elif defined(__NetBSD__) || defined(__OpenBSD__)
+    /* NetBSD/OpenBSD have kern.cp_time */
+    uint64_t cp_time[5];
+    size = sizeof(cp_time);
+    if (sysctlbyname("kern.cp_time", cp_time, &size, NULL, 0) == 0) {
+        uint64_t user = cp_time[0];
+        uint64_t nice = cp_time[1];
+        uint64_t system = cp_time[2];
+        uint64_t interrupt = cp_time[3];
+        uint64_t idle = cp_time[4];
+
+        uint64_t total_ticks = user + nice + system + interrupt + idle;
+        uint64_t system_ticks = system + interrupt;
+
+        if (prev_total != 0) {
+            uint64_t idle_diff = idle - prev_idle;
+            uint64_t total_diff = total_ticks - prev_total;
+            uint64_t system_diff = system_ticks - prev_system;
+
+            if (total_diff > 0) {
+                stats->cpu_usage = 100.0 * (1.0 - (double)idle_diff / total_diff);
+                stats->system_cpu_usage = 100.0 * (double)system_diff / total_diff;
+            } else {
+                stats->cpu_usage = 0.0;
+                stats->system_cpu_usage = 0.0;
+            }
+        } else {
+            stats->cpu_usage = 0.0;
+            stats->system_cpu_usage = 0.0;
+        }
+
+        prev_idle = idle;
+        prev_total = total_ticks;
+        prev_system = system_ticks;
+    }
+#endif
 
     return true;
 #elif defined(__unix__) || defined(__unix) || defined(unix)

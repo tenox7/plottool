@@ -6,7 +6,7 @@
 #include <time.h>
 #include <stdint.h>
 
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__)
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <ifaddrs.h>
@@ -27,7 +27,7 @@ typedef struct {
     double last_rate;      // Combined rate for backward compatibility
 } if_thr_context_t;
 
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__)
 static bool get_interface_stats(const char* interface_name, uint32_t* in_bytes, uint32_t* out_bytes) {
     int mib[6];
     size_t len;
@@ -154,8 +154,8 @@ static bool parse_if_thr_target(const char* target, char** interface_name) {
 static bool if_thr_init(const char *target, void **context) {
     if (!target) return false;
 
-#if !defined(__APPLE__) && !defined(LINUX)
-    return false; // Only supported on macOS and Linux
+#if !defined(__APPLE__) && !defined(__FreeBSD__) && !defined(__NetBSD__) && !defined(__OpenBSD__) && !defined(LINUX)
+    return false; // Only supported on macOS, BSD variants, and Linux
 #endif
 
     if_thr_context_t *ctx = malloc(sizeof(if_thr_context_t));
@@ -180,8 +180,8 @@ static bool if_thr_init(const char *target, void **context) {
 
 // Shared collection logic for all if_thr variants
 static bool if_thr_collect_internal(if_thr_context_t *ctx) {
-#if !defined(__APPLE__) && !defined(LINUX)
-    return false; // Only supported on macOS and Linux
+#if !defined(__APPLE__) && !defined(__FreeBSD__) && !defined(__NetBSD__) && !defined(__OpenBSD__) && !defined(LINUX)
+    return false; // Only supported on macOS, BSD variants, and Linux
 #endif
 
     uint32_t in_bytes, out_bytes;

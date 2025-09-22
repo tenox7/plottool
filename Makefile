@@ -13,6 +13,15 @@ ifeq ($(UNAME_S),Linux)
     CFLAGS += -DLINUX
     LDFLAGS += -lpthread -lm
 endif
+ifeq ($(UNAME_S),FreeBSD)
+    LDFLAGS += -lpthread -lm
+endif
+ifeq ($(UNAME_S),NetBSD)
+    LDFLAGS += -lpthread -lm
+endif
+ifeq ($(UNAME_S),OpenBSD)
+    LDFLAGS += -lpthread -lm
+endif
 
 # Graphics driver selection
 ifeq ($(GFX),SDL3)
