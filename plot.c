@@ -12,6 +12,28 @@ static void calculate_stats(plot_t *plot) {
 
     mutex_lock(plot->data_buffer->mutex);
 
+    /* Check if stats are cached and data hasn't changed */
+    uint32_t current_count = plot->data_buffer->count;
+    uint32_t current_head = plot->data_buffer->head;
+    uint32_t current_count_secondary = plot->data_buffer_secondary ? plot->data_buffer_secondary->count : 0;
+    uint32_t current_head_secondary = plot->data_buffer_secondary ? plot->data_buffer_secondary->head : 0;
+
+    if (!plot->stats_dirty &&
+        current_count == plot->cached_data_count &&
+        current_head == plot->cached_head_position &&
+        current_count_secondary == plot->cached_data_count_secondary &&
+        current_head_secondary == plot->cached_head_position_secondary) {
+        mutex_unlock(plot->data_buffer->mutex);
+        return; /* Use cached values */
+    }
+
+    /* Update cache tracking */
+    plot->cached_data_count = current_count;
+    plot->cached_head_position = current_head;
+    plot->cached_data_count_secondary = current_count_secondary;
+    plot->cached_head_position_secondary = current_head_secondary;
+    plot->stats_dirty = false;
+
     if (plot->is_dual && plot->data_buffer_secondary) {
         // Dual-line combined statistics
         double sum = 0.0;
@@ -387,6 +409,13 @@ plot_system_t *plot_system_create(config_t *config) {
         plot->avg_value = 0.0;
         plot->last_value = 0.0;
         plot->active = true;
+
+        /* Initialize cache fields */
+        plot->cached_data_count = 0;
+        plot->cached_data_count_secondary = 0;
+        plot->cached_head_position = 0;
+        plot->cached_head_position_secondary = 0;
+        plot->stats_dirty = true;
     }
     
     return system;

@@ -22,6 +22,13 @@ typedef struct {
     double last_value_secondary;
     bool active;
     bool is_dual; // True for dual-line plots like SNMP
+
+    /* Statistics caching fields */
+    uint32_t cached_data_count;
+    uint32_t cached_data_count_secondary;
+    uint32_t cached_head_position;
+    uint32_t cached_head_position_secondary;
+    bool stats_dirty;
 } plot_t;
 
 typedef struct {
