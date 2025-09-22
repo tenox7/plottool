@@ -400,6 +400,11 @@ plot_system_t *plot_system_create(config_t *config) {
     system->fullscreen = false;
     system->last_plot_width = 0;
 
+    /* Initialize window size cache */
+    system->cached_window_width = 0;
+    system->cached_window_height = 0;
+    system->window_size_dirty = true;
+
     for (uint32_t i = 0; i < system->plot_count; i++) {
         plot_t *plot = &system->plots[i];
         plot->config = &config->plots[i];
@@ -447,14 +452,17 @@ bool plot_system_update(plot_system_t *system) {
     if (!graphics_wait_events()) {
         return false;
     }
-    
-    int32_t window_width, window_height;
-    window_get_size(system->window, &window_width, &window_height);
+
+    /* Check if window was resized or if we need initial size */
+    if (window_was_resized() || system->window_size_dirty) {
+        window_get_size(system->window, &system->cached_window_width, &system->cached_window_height);
+        system->window_size_dirty = false;
+    }
 
     int32_t plot_height = system->config->default_height;
     int32_t margin = system->config->window_margin;
     int32_t plot_spacing = 10;
-    int32_t current_plot_width = window_width - (margin * 2);
+    int32_t current_plot_width = system->cached_window_width - (margin * 2);
 
     if (system->last_plot_width != current_plot_width) {
         uint32_t new_buffer_size = current_plot_width - 2;
@@ -473,7 +481,7 @@ bool plot_system_update(plot_system_t *system) {
     for (uint32_t i = 0; i < system->plot_count; i++) {
         int32_t y = i * (plot_height + plot_spacing) + margin;
         plot_draw(&system->plots[i], system->renderer, system->font,
-                  margin, y, window_width - (margin * 2), plot_height, system->config);
+                  margin, y, system->cached_window_width - (margin * 2), plot_height, system->config);
     }
     
     renderer_present(system->renderer);

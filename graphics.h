@@ -31,6 +31,7 @@ window_t *window_create(const char *title, int32_t width, int32_t height);
 void window_destroy(window_t *window);
 void window_set_fullscreen(window_t *window, bool fullscreen);
 void window_get_size(window_t *window, int32_t *width, int32_t *height);
+bool window_was_resized(void);
 
 renderer_t *renderer_create(window_t *window);
 void renderer_destroy(renderer_t *renderer);

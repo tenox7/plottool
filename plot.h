@@ -40,6 +40,11 @@ typedef struct {
     font_t *font;
     bool fullscreen;
     int32_t last_plot_width;
+
+    /* Window size caching */
+    int32_t cached_window_width;
+    int32_t cached_window_height;
+    bool window_size_dirty;
 } plot_system_t;
 
 plot_system_t *plot_system_create(config_t *config);

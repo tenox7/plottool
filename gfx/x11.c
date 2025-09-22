@@ -32,6 +32,7 @@ typedef struct {
 
 static bool x11_initialized = false;
 static x11_window_context_t *x11_active_window = NULL;
+static bool window_resized = false;
 
 static unsigned long x11_create_color(Display *display, int screen, color_t color) {
     Colormap colormap = DefaultColormap(display, screen);
@@ -431,6 +432,7 @@ bool graphics_poll_events(void) {
                     event.xconfigure.height != x11_active_window->height) {
                     x11_active_window->width = event.xconfigure.width;
                     x11_active_window->height = event.xconfigure.height;
+                    window_resized = true;
 
                     XFreePixmap(x11_active_window->display, x11_active_window->pixmap);
                     x11_active_window->pixmap = XCreatePixmap(x11_active_window->display,
@@ -483,4 +485,10 @@ void graphics_start_render_timer(int fps) {
 }
 
 void graphics_stop_render_timer(void) {
+}
+
+bool window_was_resized(void) {
+    bool result = window_resized;
+    window_resized = false; /* Reset flag */
+    return result;
 }

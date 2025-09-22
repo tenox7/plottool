@@ -27,6 +27,7 @@ typedef struct {
 static bool gtk_initialized = false;
 static gtk_window_context_t *gtk_active_window = NULL;
 static guint gtk_render_timer_id = 0;
+static bool window_resized = false;
 
 static gboolean gtk_draw_callback(GtkWidget *widget, cairo_t *cr, gpointer data);
 static gboolean gtk_delete_event(GtkWidget *widget, GdkEvent *event, gpointer data);
@@ -378,6 +379,7 @@ static void gtk_size_allocate(GtkWidget *widget, GtkAllocation *allocation, gpoi
     if (ctx->width != allocation->width || ctx->height != allocation->height) {
         ctx->width = allocation->width;
         ctx->height = allocation->height;
+        window_resized = true;
 
         if (ctx->surface) {
             cairo_surface_destroy(ctx->surface);
@@ -395,4 +397,10 @@ static void gtk_size_allocate(GtkWidget *widget, GtkAllocation *allocation, gpoi
 
         gtk_widget_queue_draw(widget);
     }
+}
+
+bool window_was_resized(void) {
+    bool result = window_resized;
+    window_resized = false; /* Reset flag */
+    return result;
 }

@@ -5,6 +5,7 @@
 
 static bool sdl_initialized = false;
 static SDL_TimerID render_timer = 0;
+static bool window_resized = false;
 
 static Uint32 render_timer_callback(void *userdata, SDL_TimerID timerID, Uint32 interval) {
     (void)userdata;
@@ -227,6 +228,8 @@ bool graphics_wait_events(void) {
                 case SDL_EVENT_QUIT:
                     return false;
                 case SDL_EVENT_WINDOW_RESIZED:
+                    window_resized = true;
+                    break;
                 case SDL_EVENT_KEY_DOWN:
                 case SDL_EVENT_MOUSE_BUTTON_DOWN:
                 case SDL_EVENT_MOUSE_MOTION:
@@ -255,4 +258,10 @@ void graphics_stop_render_timer(void) {
         SDL_RemoveTimer(render_timer);
         render_timer = 0;
     }
+}
+
+bool window_was_resized(void) {
+    bool result = window_resized;
+    window_resized = false; /* Reset flag */
+    return result;
 }
