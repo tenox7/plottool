@@ -1,6 +1,7 @@
 #include "../graphics.h"
 #include <SDL3/SDL.h>
 #include <SDL3_ttf/SDL_ttf.h>
+#include <fontconfig/fontconfig.h>
 
 static bool sdl_initialized = false;
 static SDL_TimerID render_timer = 0;
@@ -133,7 +134,30 @@ font_t *font_create(const char *path, int32_t size) {
     font_t *font = malloc(sizeof(font_t));
     if (!font) return NULL;
 
-    TTF_Font *ttf_font = TTF_OpenFont(path, size);
+    (void)path; /* Ignore path parameter, use system font */
+
+    TTF_Font *ttf_font = NULL;
+    FcConfig *config = FcInitLoadConfigAndFonts();
+    if (config) {
+        FcPattern *pattern = FcPatternCreate();
+        FcPatternAddString(pattern, FC_FAMILY, (FcChar8*)"monospace");
+
+        FcConfigSubstitute(config, pattern, FcMatchPattern);
+        FcDefaultSubstitute(pattern);
+
+        FcResult result;
+        FcPattern *match = FcFontMatch(config, pattern, &result);
+        if (match) {
+            FcChar8 *font_path = NULL;
+            if (FcPatternGetString(match, FC_FILE, 0, &font_path) == FcResultMatch) {
+                ttf_font = TTF_OpenFont((char*)font_path, size);
+            }
+            FcPatternDestroy(match);
+        }
+        FcPatternDestroy(pattern);
+        FcConfigDestroy(config);
+    }
+
     if (!ttf_font) {
         free(font);
         return NULL;

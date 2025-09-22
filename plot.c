@@ -366,7 +366,7 @@ plot_system_t *plot_system_create(config_t *config) {
         return NULL;
     }
     
-    system->font = font_create("fonts/noto.ttf", 11);
+    system->font = font_create("", 11);
     if (!system->font) {
         renderer_destroy(system->renderer);
         window_destroy(system->window);
