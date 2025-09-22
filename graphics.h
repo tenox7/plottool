@@ -1,0 +1,55 @@
+#ifndef GRAPHICS_H
+#define GRAPHICS_H
+
+#include <stdint.h>
+#include <stdbool.h>
+
+typedef struct {
+    uint8_t r, g, b, a;
+} color_t;
+
+typedef struct {
+    int32_t x, y, w, h;
+} rect_t;
+
+typedef struct {
+    void *handle;
+} font_t;
+
+typedef struct {
+    void *handle;
+} window_t;
+
+typedef struct {
+    void *handle;
+} renderer_t;
+
+bool graphics_init(void);
+void graphics_cleanup(void);
+
+window_t *window_create(const char *title, int32_t width, int32_t height);
+void window_destroy(window_t *window);
+void window_set_fullscreen(window_t *window, bool fullscreen);
+void window_get_size(window_t *window, int32_t *width, int32_t *height);
+
+renderer_t *renderer_create(window_t *window);
+void renderer_destroy(renderer_t *renderer);
+void renderer_clear(renderer_t *renderer, color_t color);
+void renderer_present(renderer_t *renderer);
+void renderer_set_color(renderer_t *renderer, color_t color);
+void renderer_draw_line(renderer_t *renderer, int32_t x1, int32_t y1, int32_t x2, int32_t y2);
+void renderer_draw_rect(renderer_t *renderer, rect_t rect);
+void renderer_fill_rect(renderer_t *renderer, rect_t rect);
+
+font_t *font_create(const char *path, int32_t size);
+void font_destroy(font_t *font);
+void font_draw_text(renderer_t *renderer, font_t *font, color_t color,
+                    int32_t x, int32_t y, const char *text);
+void font_get_text_size(font_t *font, const char *text, int32_t *width, int32_t *height);
+
+bool graphics_poll_events(void);
+bool graphics_wait_events(void);
+void graphics_start_render_timer(int fps);
+void graphics_stop_render_timer(void);
+
+#endif
