@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -std=c99 -O2 -g
+CFLAGS = -std=c99 -O2 -g
 LDFLAGS = 
 
 # Platform detection
@@ -29,29 +29,25 @@ ifeq ($(GFX),SDL3)
     LDFLAGS += $(shell pkg-config --libs sdl3 sdl3-ttf fontconfig)
 endif
 ifeq ($(GFX),SDL2)
-    CFLAGS += -DGFX_SDL $(shell pkg-config --cflags fontconfig)
-    LDFLAGS += -lSDL2 -lSDL2_ttf $(shell pkg-config --libs fontconfig)
-endif
-ifeq ($(GFX),SDL)
-    CFLAGS += -DGFX_SDL $(shell pkg-config --cflags fontconfig)
+    CFLAGS += -DGFX_SDL2 $(shell pkg-config --cflags fontconfig)
     LDFLAGS += -lSDL2 -lSDL2_ttf $(shell pkg-config --libs fontconfig)
 endif
 ifeq ($(GFX),X11)
     CFLAGS += -DGFX_X11
     LDFLAGS += -lX11
 endif
-ifeq ($(GFX),GTK)
-    CFLAGS += -DGFX_GTK $(shell pkg-config --cflags gtk+-3.0)
+ifeq ($(GFX),GTK3)
+    CFLAGS += -DGFX_GTK3 $(shell pkg-config --cflags gtk+-3.0)
     LDFLAGS += $(shell pkg-config --libs gtk+-3.0)
 endif
 
-# Default to SDL if no graphics driver specified
+# Default to SDL2 if no graphics driver specified
 ifeq ($(GFX),)
-    CFLAGS += -DGFX_SDL $(shell pkg-config --cflags fontconfig)
+    CFLAGS += -DGFX_SDL2 $(shell pkg-config --cflags fontconfig)
     LDFLAGS += -lSDL2 -lSDL2_ttf $(shell pkg-config --libs fontconfig)
 endif
 
-SOURCES = main.c platform.c graphics.c config.c plot.c ringbuf.c threading.c ini_parser.c datasource.c ds/ping.c ds/sryze-ping.c ds/cpu.c ds/memory.c ds/sine.c ds/snmp.c ds/if_thr.c
+SOURCES = main.c platform.c graphics.c config.c plot.c ringbuf.c threading.c ini_parser.c datasource.c ds/ping.c ds/sryze-ping.c ds/cpu.c ds/memory.c ds/sine.c ds/snmp.c ds/if_thr.c gfx/gtk3.c
 OBJECTS = $(SOURCES:.c=.o)
 TARGET = plottool
 
