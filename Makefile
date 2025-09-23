@@ -47,7 +47,7 @@ ifeq ($(GFX),)
     LDFLAGS += -lSDL2 -lSDL2_ttf $(shell pkg-config --libs fontconfig)
 endif
 
-SOURCES = main.c platform.c graphics.c config.c plot.c ringbuf.c threading.c ini_parser.c datasource.c ds/ping.c ds/sryze-ping.c ds/cpu.c ds/memory.c ds/sine.c ds/snmp.c ds/if_thr.c gfx/gtk3.c
+SOURCES = main.c platform.c graphics.c config.c plot.c ringbuf.c threading.c ini_parser.c datasource.c ds/ping.c ds/sryze-ping.c ds/cpu.c ds/memory.c ds/sine.c ds/snmp.c ds/if_thr.c
 OBJECTS = $(SOURCES:.c=.o)
 TARGET = plottool
 
