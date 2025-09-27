@@ -109,8 +109,8 @@ static void parse_plot_config(ini_file_t *ini, plot_config_t *plot, const char *
         plot->height = atoi(value);
     }
 
-    if ((value = ini_get_value(ini, section_name, "refresh_interval_ms"))) {
-        plot->refresh_interval_ms = atoi(value);
+    if ((value = ini_get_value(ini, section_name, "refresh_interval_sec"))) {
+        plot->refresh_interval_ms = atoi(value) * 1000;
     }
 }
 
@@ -165,8 +165,8 @@ config_t *config_load(const char *filename) {
     if ((value = ini_get_value(ini, "global", "default_width"))) {
         config->default_width = atoi(value);
     }
-    if ((value = ini_get_value(ini, "global", "refresh_interval_ms"))) {
-        config->refresh_interval_ms = atoi(value);
+    if ((value = ini_get_value(ini, "global", "refresh_interval_sec"))) {
+        config->refresh_interval_ms = atoi(value) * 1000;
     }
     if ((value = ini_get_value(ini, "global", "window_margin"))) {
         config->window_margin = atoi(value);
