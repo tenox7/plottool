@@ -36,5 +36,6 @@ typedef struct {
 
 config_t *config_load(const char *filename);
 void config_destroy(config_t *config);
+int config_get_max_fps(void);
 
 #endif

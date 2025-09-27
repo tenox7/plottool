@@ -2,6 +2,8 @@
 #include <gtk/gtk.h>
 #include <cairo.h>
 #include <pango/pangocairo.h>
+#include <sys/time.h>
+#include <unistd.h>
 
 typedef struct {
     GtkWidget *window;
@@ -339,13 +341,39 @@ bool graphics_poll_events(void) {
     return true;
 }
 
+static uint64_t gtk_get_time_us(void) {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (uint64_t)tv.tv_sec * 1000000 + tv.tv_usec;
+}
+
 bool graphics_wait_events(void) {
-    gtk_main_iteration();
+    static uint64_t last_frame_time = 0;
+
+    extern int config_get_max_fps(void);
+    int fps = config_get_max_fps();
+    if (fps <= 0) fps = 1;
+    uint64_t frame_interval_us = 1000000 / fps;
+
+    uint64_t current_time = gtk_get_time_us();
+
+    if (last_frame_time != 0) {
+        uint64_t elapsed_us = current_time - last_frame_time;
+        if (elapsed_us < frame_interval_us) {
+            uint64_t sleep_us = frame_interval_us - elapsed_us;
+            usleep(sleep_us);
+        }
+    }
+
+    while (gtk_events_pending()) {
+        gtk_main_iteration();
+    }
 
     if (gtk_active_window && gtk_active_window->should_quit) {
         return false;
     }
 
+    last_frame_time = gtk_get_time_us();
     return true;
 }
 

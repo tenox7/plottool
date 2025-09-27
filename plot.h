@@ -46,6 +46,9 @@ typedef struct {
     int32_t cached_window_height;
     bool window_size_dirty;
 
+    /* Rendering optimization */
+    bool needs_redraw;
+
 } plot_system_t;
 
 plot_system_t *plot_system_create(config_t *config);

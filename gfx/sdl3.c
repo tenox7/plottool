@@ -4,22 +4,11 @@
 #include <fontconfig/fontconfig.h>
 
 static bool sdl_initialized = false;
-static SDL_TimerID render_timer = 0;
 static bool window_resized = false;
 
 static uint32_t frame_count = 0;
 static uint64_t fps_last_time = 0;
 static float current_fps = 0.0f;
-
-static Uint32 render_timer_callback(void *userdata, SDL_TimerID timerID, Uint32 interval) {
-    (void)userdata;
-    (void)timerID;
-    SDL_Event event = {0};
-    event.type = SDL_EVENT_USER;
-    event.user.code = 1;
-    SDL_PushEvent(&event);
-    return interval;
-}
 
 bool graphics_init(void) {
     if (sdl_initialized) {
@@ -230,7 +219,12 @@ bool graphics_poll_events(void) {
 bool graphics_wait_events(void) {
     SDL_Event event;
 
-    if (SDL_WaitEvent(&event)) {
+    extern int config_get_max_fps(void);
+    int fps = config_get_max_fps();
+    if (fps <= 0) fps = 1;
+    Uint32 timeout_ms = 1000 / fps;
+
+    if (SDL_WaitEventTimeout(&event, timeout_ms)) {
         do {
             switch (event.type) {
                 case SDL_EVENT_QUIT:
@@ -245,27 +239,16 @@ bool graphics_wait_events(void) {
                     break;
             }
         } while (SDL_PollEvent(&event));
-
-        return true;
     }
 
-    return false;
+    return true;
 }
 
 void graphics_start_render_timer(int fps) {
-    if (render_timer != 0) {
-        SDL_RemoveTimer(render_timer);
-    }
-
-    Uint32 interval = 1000 / fps;
-    render_timer = SDL_AddTimer(interval, render_timer_callback, NULL);
+    (void)fps;
 }
 
 void graphics_stop_render_timer(void) {
-    if (render_timer != 0) {
-        SDL_RemoveTimer(render_timer);
-        render_timer = 0;
-    }
 }
 
 bool window_was_resized(void) {

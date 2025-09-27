@@ -483,13 +483,16 @@ bool graphics_poll_events(void) {
 bool graphics_wait_events(void) {
     if (!x11_active_window) return true;
 
-    // Check if the window should quit first
     if (x11_active_window->should_quit) {
         return false;
     }
 
-    // Just sleep a bit and then check for events non-blocking
-    usleep(16666); // ~60 FPS (16.7ms)
+    extern int config_get_max_fps(void);
+    int fps = config_get_max_fps();
+    if (fps <= 0) fps = 1;
+    int sleep_us = 1000000 / fps;
+
+    usleep(sleep_us);
 
     return graphics_poll_events();
 }

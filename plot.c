@@ -406,6 +406,9 @@ plot_system_t *plot_system_create(config_t *config) {
     system->cached_window_height = 0;
     system->window_size_dirty = true;
 
+    /* Initialize rendering optimization */
+    system->needs_redraw = true;
+
 
 
     for (uint32_t i = 0; i < system->plot_count; i++) {
@@ -449,6 +452,32 @@ void plot_system_connect_data_buffers(plot_system_t *system, data_collector_t *c
     }
 }
 
+static bool plot_system_needs_redraw(plot_system_t *system) {
+    if (!system) return false;
+
+    if (window_was_resized() || system->window_size_dirty || system->needs_redraw) {
+        return true;
+    }
+
+    for (uint32_t i = 0; i < system->plot_count; i++) {
+        plot_t *plot = &system->plots[i];
+        if (!plot->data_buffer) continue;
+
+        if (plot->cached_data_count != plot->data_buffer->count ||
+            plot->cached_head_position != plot->data_buffer->head) {
+            return true;
+        }
+
+        if (plot->is_dual && plot->data_buffer_secondary &&
+            (plot->cached_data_count_secondary != plot->data_buffer_secondary->count ||
+             plot->cached_head_position_secondary != plot->data_buffer_secondary->head)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 bool plot_system_update(plot_system_t *system) {
     if (!system) return false;
 
@@ -456,17 +485,17 @@ bool plot_system_update(plot_system_t *system) {
         return false;
     }
 
-    /* Check if window was resized or if we need initial size */
-    if (window_was_resized() || system->window_size_dirty) {
+    bool window_resized = window_was_resized();
+    bool needs_full_render = false;
+
+    if (window_resized || system->window_size_dirty) {
         window_get_size(system->window, &system->cached_window_width, &system->cached_window_height);
         system->window_size_dirty = false;
+        system->needs_redraw = true;
+        needs_full_render = true;
     }
 
-    int32_t plot_height = system->config->default_height;
-    int32_t margin = system->config->window_margin;
-    int32_t plot_spacing = 10;
-    int32_t current_plot_width = system->cached_window_width - (margin * 2);
-
+    int32_t current_plot_width = system->cached_window_width - (system->config->window_margin * 2);
     if (system->last_plot_width != current_plot_width) {
         uint32_t new_buffer_size = current_plot_width - 2;
         if (new_buffer_size > 0) {
@@ -477,19 +506,31 @@ bool plot_system_update(plot_system_t *system) {
             }
         }
         system->last_plot_width = current_plot_width;
+        system->needs_redraw = true;
+        needs_full_render = true;
     }
 
+    if (!plot_system_needs_redraw(system) && !needs_full_render) {
+        return true;
+    }
+
+    int32_t plot_height = system->config->default_height;
+    int32_t margin = system->config->window_margin;
+    int32_t plot_spacing = 10;
+
     renderer_clear(system->renderer, system->config->background_color);
-    
+
     for (uint32_t i = 0; i < system->plot_count; i++) {
         int32_t y = i * (plot_height + plot_spacing) + margin;
         plot_draw(&system->plots[i], system->renderer, system->font,
-                  margin, y, system->cached_window_width - (margin * 2), plot_height, system->config);
+                  margin, y, current_plot_width, plot_height, system->config);
     }
 
     graphics_draw_fps_counter(system->renderer, system->font, system->config->fps_counter);
 
     renderer_present(system->renderer);
+
+    system->needs_redraw = false;
 
     return true;
 }

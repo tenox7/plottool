@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+static config_t *global_config = NULL;
+
 static color_t parse_color(const char *str) {
     color_t color = {0, 0, 0, 255};
     if (!str || strlen(str) != 6) return color;
@@ -226,20 +228,31 @@ config_t *config_load(const char *filename) {
     
     config->plots = plots;
     config->plot_count = plot_count;
-    
+
+    global_config = config;
+
     ini_free(ini);
     return config;
 }
 
 void config_destroy(config_t *config) {
     if (!config) return;
-    
+
+    if (global_config == config) {
+        global_config = NULL;
+    }
+
     for (uint32_t i = 0; i < config->plot_count; i++) {
         free(config->plots[i].name);
         free(config->plots[i].type);
         free(config->plots[i].target);
     }
-    
+
     free(config->plots);
     free(config);
+}
+
+int config_get_max_fps(void) {
+    if (!global_config) return 2;
+    return global_config->max_fps;
 }
