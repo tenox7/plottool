@@ -143,6 +143,34 @@ void plot_thread_join(plot_thread_t *thread) {
 #endif
 }
 
+bool plot_thread_join_timeout(plot_thread_t *thread, uint32_t timeout_ms) {
+    if (!thread) return false;
+
+#if defined(__unix__) || defined(__unix) || defined(unix) || defined(__APPLE__)
+    struct timespec ts;
+    if (clock_gettime(CLOCK_REALTIME, &ts) != 0) {
+        return false;
+    }
+
+    ts.tv_sec += timeout_ms / 1000;
+    ts.tv_nsec += (timeout_ms % 1000) * 1000000;
+    if (ts.tv_nsec >= 1000000000) {
+        ts.tv_sec++;
+        ts.tv_nsec -= 1000000000;
+    }
+
+#ifdef __APPLE__
+    int result = pthread_join(*(pthread_t*)thread->handle, NULL);
+    return (result == 0);
+#else
+    int result = pthread_timedjoin_np(*(pthread_t*)thread->handle, NULL, &ts);
+    return (result == 0);
+#endif
+#else
+    return false;
+#endif
+}
+
 bool get_system_stats(system_stats_t *stats) {
     if (!stats) return false;
 

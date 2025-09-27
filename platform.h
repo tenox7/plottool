@@ -35,6 +35,7 @@ void mutex_unlock(mutex_t *mutex);
 plot_thread_t *plot_thread_create(void (*func)(void *), void *arg);
 void plot_thread_destroy(plot_thread_t *thread);
 void plot_thread_join(plot_thread_t *thread);
+bool plot_thread_join_timeout(plot_thread_t *thread, uint32_t timeout_ms);
 
 bool get_system_stats(system_stats_t *stats);
 

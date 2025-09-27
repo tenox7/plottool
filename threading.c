@@ -11,7 +11,7 @@ static void data_source_thread(void *arg) {
 
     if (!source->datasource) {
         fprintf(stderr, "No datasource available for %s:%s\n", source->type, source->target);
-        while (source->running) {
+        while (atomic_load(&source->running) && !atomic_load(&source->shutdown_requested)) {
             ringbuf_push(source->data_buffer, -1.0);
             platform_sleep(source->refresh_interval_ms);
         }
@@ -19,8 +19,7 @@ static void data_source_thread(void *arg) {
     }
 
     uint32_t sample_count = 0;
-    while (source->running) {
-        if (!source->running) break;
+    while (atomic_load(&source->running) && !atomic_load(&source->shutdown_requested)) {
 
         if (source->is_dual && source->datasource->handler->collect_dual) {
             // Dual collection for SNMP-like sources
@@ -98,7 +97,8 @@ data_collector_t *data_collector_create(config_t *config) {
         source->datasource = datasource_create(config->plots[i].type, config->plots[i].target);
         source->data_buffer = ringbuf_create(config->default_width - 2);
         source->thread = NULL;
-        source->running = false;
+        atomic_store(&source->running, false);
+        atomic_store(&source->shutdown_requested, false);
 
         // Check if this is a dual-line data source
         source->is_dual = (source->datasource && source->datasource->handler->is_dual);
@@ -124,7 +124,9 @@ data_collector_t *data_collector_create(config_t *config) {
             return NULL;
         }
     }
-    
+
+    atomic_store(&collector->shutdown_requested, false);
+
     return collector;
 }
 
@@ -150,14 +152,17 @@ bool data_collector_start(data_collector_t *collector) {
     
     for (uint32_t i = 0; i < collector->source_count; i++) {
         data_source_t *source = &collector->sources[i];
-        source->running = true;
+        atomic_store(&source->running, true);
         source->thread = plot_thread_create(data_source_thread, source);
         
         if (!source->thread) {
-            source->running = false;
+            atomic_store(&source->running, false);
             for (uint32_t j = 0; j < i; j++) {
-                collector->sources[j].running = false;
-                plot_thread_join(collector->sources[j].thread);
+                atomic_store(&collector->sources[j].running, false);
+                atomic_store(&collector->sources[j].shutdown_requested, true);
+                if (!plot_thread_join_timeout(collector->sources[j].thread, 2000)) {
+                    printf("Warning: Thread %u did not exit within timeout\n", j);
+                }
                 plot_thread_destroy(collector->sources[j].thread);
             }
             return false;
@@ -169,10 +174,23 @@ bool data_collector_start(data_collector_t *collector) {
 
 void data_collector_stop(data_collector_t *collector) {
     if (!collector) return;
-    
+
     for (uint32_t i = 0; i < collector->source_count; i++) {
-        collector->sources[i].running = false;
-        plot_thread_join(collector->sources[i].thread);
+        atomic_store(&collector->sources[i].running, false);
+        atomic_store(&collector->sources[i].shutdown_requested, true);
+        if (!plot_thread_join_timeout(collector->sources[i].thread, 3000)) {
+            printf("Warning: Data source thread %u (%s:%s) did not exit within 3s timeout\n",
+                   i, collector->sources[i].type, collector->sources[i].target);
+        }
         plot_thread_destroy(collector->sources[i].thread);
+    }
+}
+
+void data_collector_request_shutdown(data_collector_t *collector) {
+    if (!collector) return;
+
+    atomic_store(&collector->shutdown_requested, true);
+    for (uint32_t i = 0; i < collector->source_count; i++) {
+        atomic_store(&collector->sources[i].shutdown_requested, true);
     }
 }

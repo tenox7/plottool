@@ -15,12 +15,20 @@ ringbuf_t *ringbuf_create(uint32_t size) {
     }
     
     ringbuf->size = size;
-    ringbuf->head = 0;
-    ringbuf->tail = 0;
-    ringbuf->count = 0;
-    
-    ringbuf->mutex = mutex_create();
-    if (!ringbuf->mutex) {
+    atomic_store(&ringbuf->head, 0);
+    atomic_store(&ringbuf->tail, 0);
+    atomic_store(&ringbuf->count, 0);
+
+    ringbuf->write_mutex = mutex_create();
+    if (!ringbuf->write_mutex) {
+        free(ringbuf->data);
+        free(ringbuf);
+        return NULL;
+    }
+
+    ringbuf->resize_mutex = mutex_create();
+    if (!ringbuf->resize_mutex) {
+        mutex_destroy(ringbuf->write_mutex);
         free(ringbuf->data);
         free(ringbuf);
         return NULL;
@@ -34,7 +42,8 @@ ringbuf_t *ringbuf_create(uint32_t size) {
 void ringbuf_destroy(ringbuf_t *ringbuf) {
     if (!ringbuf) return;
 
-    mutex_destroy(ringbuf->mutex);
+    mutex_destroy(ringbuf->write_mutex);
+    mutex_destroy(ringbuf->resize_mutex);
     free(ringbuf->data);
     free(ringbuf);
 }
@@ -42,28 +51,34 @@ void ringbuf_destroy(ringbuf_t *ringbuf) {
 bool ringbuf_resize(ringbuf_t *ringbuf, uint32_t new_size) {
     if (!ringbuf || new_size == 0) return false;
 
-    mutex_lock(ringbuf->mutex);
+    mutex_lock(ringbuf->resize_mutex);
+    mutex_lock(ringbuf->write_mutex);
 
     if (new_size == ringbuf->size) {
-        mutex_unlock(ringbuf->mutex);
+        mutex_unlock(ringbuf->write_mutex);
+        mutex_unlock(ringbuf->resize_mutex);
         return true;
     }
 
     double *new_data = malloc(sizeof(double) * new_size);
     if (!new_data) {
-        mutex_unlock(ringbuf->mutex);
+        mutex_unlock(ringbuf->write_mutex);
+        mutex_unlock(ringbuf->resize_mutex);
         return false;
     }
 
-    uint32_t copy_count = (ringbuf->count < new_size) ? ringbuf->count : new_size;
+    uint32_t current_count = atomic_load(&ringbuf->count);
+    uint32_t current_head = atomic_load(&ringbuf->head);
+    uint32_t current_tail = atomic_load(&ringbuf->tail);
+    uint32_t copy_count = (current_count < new_size) ? current_count : new_size;
 
     if (copy_count > 0) {
         for (uint32_t i = 0; i < copy_count; i++) {
             uint32_t src_index;
-            if (new_size < ringbuf->count) {
-                src_index = (ringbuf->head - copy_count + i + ringbuf->size) % ringbuf->size;
+            if (new_size < current_count) {
+                src_index = (current_head - copy_count + i + ringbuf->size) % ringbuf->size;
             } else {
-                src_index = (ringbuf->tail + i) % ringbuf->size;
+                src_index = (current_tail + i) % ringbuf->size;
             }
             new_data[i] = ringbuf->data[src_index];
         }
@@ -72,78 +87,115 @@ bool ringbuf_resize(ringbuf_t *ringbuf, uint32_t new_size) {
     free(ringbuf->data);
     ringbuf->data = new_data;
     ringbuf->size = new_size;
-    ringbuf->head = copy_count % new_size;
-    ringbuf->tail = 0;
-    ringbuf->count = copy_count;
+    atomic_store(&ringbuf->head, copy_count % new_size);
+    atomic_store(&ringbuf->tail, 0);
+    atomic_store(&ringbuf->count, copy_count);
 
     memset(&ringbuf->data[copy_count], 0, sizeof(double) * (new_size - copy_count));
 
-    mutex_unlock(ringbuf->mutex);
+    mutex_unlock(ringbuf->write_mutex);
+    mutex_unlock(ringbuf->resize_mutex);
     return true;
 }
 
 bool ringbuf_push(ringbuf_t *ringbuf, double value) {
     if (!ringbuf) return false;
-    
-    mutex_lock(ringbuf->mutex);
-    
-    ringbuf->data[ringbuf->head] = value;
-    ringbuf->head = (ringbuf->head + 1) % ringbuf->size;
-    
-    if (ringbuf->count < ringbuf->size) {
-        ringbuf->count++;
+
+    mutex_lock(ringbuf->write_mutex);
+
+    uint32_t current_head = atomic_load(&ringbuf->head);
+    uint32_t current_count = atomic_load(&ringbuf->count);
+
+    ringbuf->data[current_head] = value;
+    uint32_t new_head = (current_head + 1) % ringbuf->size;
+    atomic_store(&ringbuf->head, new_head);
+
+    if (current_count < ringbuf->size) {
+        atomic_store(&ringbuf->count, current_count + 1);
     } else {
-        ringbuf->tail = (ringbuf->tail + 1) % ringbuf->size;
+        uint32_t current_tail = atomic_load(&ringbuf->tail);
+        atomic_store(&ringbuf->tail, (current_tail + 1) % ringbuf->size);
     }
-    
-    mutex_unlock(ringbuf->mutex);
+
+    mutex_unlock(ringbuf->write_mutex);
     return true;
 }
 
 bool ringbuf_pop(ringbuf_t *ringbuf, double *value) {
     if (!ringbuf || !value) return false;
-    
-    mutex_lock(ringbuf->mutex);
-    
-    if (ringbuf->count == 0) {
-        mutex_unlock(ringbuf->mutex);
+
+    mutex_lock(ringbuf->write_mutex);
+
+    uint32_t current_count = atomic_load(&ringbuf->count);
+    if (current_count == 0) {
+        mutex_unlock(ringbuf->write_mutex);
         return false;
     }
-    
-    *value = ringbuf->data[ringbuf->tail];
-    ringbuf->tail = (ringbuf->tail + 1) % ringbuf->size;
-    ringbuf->count--;
-    
-    mutex_unlock(ringbuf->mutex);
+
+    uint32_t current_tail = atomic_load(&ringbuf->tail);
+    *value = ringbuf->data[current_tail];
+    atomic_store(&ringbuf->tail, (current_tail + 1) % ringbuf->size);
+    atomic_store(&ringbuf->count, current_count - 1);
+
+    mutex_unlock(ringbuf->write_mutex);
     return true;
 }
 
 uint32_t ringbuf_count(ringbuf_t *ringbuf) {
     if (!ringbuf) return 0;
-    
-    mutex_lock(ringbuf->mutex);
-    uint32_t count = ringbuf->count;
-    mutex_unlock(ringbuf->mutex);
-    
-    return count;
+
+    return atomic_load(&ringbuf->count);
 }
 
 bool ringbuf_is_full(ringbuf_t *ringbuf) {
     if (!ringbuf) return false;
-    
-    mutex_lock(ringbuf->mutex);
-    bool full = (ringbuf->count == ringbuf->size);
-    mutex_unlock(ringbuf->mutex);
-    
-    return full;
+
+    return (atomic_load(&ringbuf->count) == ringbuf->size);
 }
 
 bool ringbuf_is_empty(ringbuf_t *ringbuf) {
     if (!ringbuf) return true;
-    
-    mutex_lock(ringbuf->mutex);
-    bool empty = (ringbuf->count == 0);
-    mutex_unlock(ringbuf->mutex);
-    
-    return empty;
+
+    return (atomic_load(&ringbuf->count) == 0);
+}
+
+bool ringbuf_read_snapshot(ringbuf_t *ringbuf, double *buffer, uint32_t buffer_size, uint32_t *count_out, uint32_t *head_out, uint32_t *tail_out) {
+    if (!ringbuf || !buffer || !count_out || !head_out || !tail_out) return false;
+
+    uint32_t count, head, tail;
+    uint32_t attempts = 0;
+    const uint32_t max_attempts = 10;
+
+    do {
+        count = atomic_load(&ringbuf->count);
+        head = atomic_load(&ringbuf->head);
+        tail = atomic_load(&ringbuf->tail);
+
+        if (count == 0) {
+            *count_out = 0;
+            return true;
+        }
+
+        uint32_t copy_count = (count < buffer_size) ? count : buffer_size;
+
+        for (uint32_t i = 0; i < copy_count; i++) {
+            uint32_t idx = (tail + i) % ringbuf->size;
+            buffer[i] = ringbuf->data[idx];
+        }
+
+        uint32_t verify_count = atomic_load(&ringbuf->count);
+        uint32_t verify_head = atomic_load(&ringbuf->head);
+        uint32_t verify_tail = atomic_load(&ringbuf->tail);
+
+        if (count == verify_count && head == verify_head && tail == verify_tail) {
+            *count_out = copy_count;
+            *head_out = head;
+            *tail_out = tail;
+            return true;
+        }
+
+        attempts++;
+    } while (attempts < max_attempts);
+
+    return false;
 }

@@ -11,21 +11,35 @@
 static void calculate_stats(plot_t *plot) {
     if (!plot || !plot->data_buffer) return;
 
-    mutex_lock(plot->data_buffer->mutex);
+    double temp_buffer[2048];
+    double temp_buffer_secondary[2048];
+    uint32_t data_count, head_pos, tail_pos;
+    uint32_t data_count_secondary = 0, head_pos_secondary = 0, tail_pos_secondary = 0;
+
+    /* Get atomic snapshots of buffer data */
+    if (!ringbuf_read_snapshot(plot->data_buffer, temp_buffer, 2048, &data_count, &head_pos, &tail_pos)) {
+        return;
+    }
+
+    if (plot->is_dual && plot->data_buffer_secondary) {
+        if (!ringbuf_read_snapshot(plot->data_buffer_secondary, temp_buffer_secondary, 2048,
+                                  &data_count_secondary, &head_pos_secondary, &tail_pos_secondary)) {
+            return;
+        }
+    }
 
     /* Check if stats are cached and data hasn't changed */
-    uint32_t current_count = plot->data_buffer->count;
-    uint32_t current_head = plot->data_buffer->head;
-    uint32_t current_count_secondary = plot->data_buffer_secondary ? plot->data_buffer_secondary->count : 0;
-    uint32_t current_head_secondary = plot->data_buffer_secondary ? plot->data_buffer_secondary->head : 0;
+    uint32_t current_count = data_count;
+    uint32_t current_head = head_pos;
+    uint32_t current_count_secondary = data_count_secondary;
+    uint32_t current_head_secondary = head_pos_secondary;
 
     if (!plot->stats_dirty &&
         current_count == plot->cached_data_count &&
         current_head == plot->cached_head_position &&
         current_count_secondary == plot->cached_data_count_secondary &&
         current_head_secondary == plot->cached_head_position_secondary) {
-        mutex_unlock(plot->data_buffer->mutex);
-        return; /* Use cached values */
+        return;
     }
 
     /* Update cache tracking */
@@ -111,8 +125,6 @@ static void calculate_stats(plot_t *plot) {
 
         plot->avg_value = count > 0 ? sum / count : 0.0;
     }
-
-    mutex_unlock(plot->data_buffer->mutex);
 }
 
 
@@ -177,14 +189,12 @@ void plot_draw(plot_t *plot, renderer_t *renderer, font_t *font,
     rect_t border_rect = {x, plot_y, width, plot_height};
     renderer_draw_rect(renderer, border_rect);
     
-    if (!plot->data_buffer || plot->data_buffer->count == 0) {
+    if (!plot->data_buffer || ringbuf_count(plot->data_buffer) == 0) {
         char stats_text[128];
         snprintf(stats_text, sizeof(stats_text), "No data");
         font_draw_text(renderer, font, border_color, x, y + height - 15, stats_text);
         return;
     }
-    
-    mutex_lock(plot->data_buffer->mutex);
 
     double fixed_max_scale = get_plot_max_scale(plot->config->type);
     double max_val;
@@ -217,17 +227,29 @@ void plot_draw(plot_t *plot, renderer_t *renderer, font_t *font,
     int32_t scale_x = x + width - scale_text_width;
     font_draw_text(renderer, font, border_color, scale_x, y + 5, scale_text);
 
+    double temp_buffer[2048];
+    double temp_buffer_secondary[2048];
+    uint32_t data_count, head_pos, tail_pos;
+    uint32_t data_count_secondary, head_pos_secondary, tail_pos_secondary;
+
+    if (!ringbuf_read_snapshot(plot->data_buffer, temp_buffer, 2048, &data_count, &head_pos, &tail_pos)) {
+        return;
+    }
+
     if (plot->is_dual && plot->data_buffer_secondary) {
+        if (!ringbuf_read_snapshot(plot->data_buffer_secondary, temp_buffer_secondary, 2048,
+                                  &data_count_secondary, &head_pos_secondary, &tail_pos_secondary)) {
+            return;
+        }
         // Dual-line rendering for SNMP: IN (filled green) and OUT (blue line)
         int32_t prev_out_x = -1, prev_out_y = -1;
 
-        for (uint32_t i = 0; i < plot->data_buffer->count; i++) {
-            uint32_t idx = (plot->data_buffer->tail + i) % plot->data_buffer->size;
-            double in_value = plot->data_buffer->data[idx];
-            double out_value = plot->data_buffer_secondary->data[idx];
+        for (uint32_t i = 0; i < data_count; i++) {
+            double in_value = temp_buffer[i];
+            double out_value = temp_buffer_secondary[i];
 
             // Map oldest (i=0) to leftmost, newest (i=count-1) to rightmost
-            int32_t plot_x = x + width - 2 - (plot->data_buffer->count - 1 - i);
+            int32_t plot_x = x + width - 2 - (data_count - 1 - i);
             int32_t plot_bottom = plot_y + plot_height - 2;
 
             if (in_value < 0 || out_value < 0) {
@@ -263,12 +285,11 @@ void plot_draw(plot_t *plot, renderer_t *renderer, font_t *font,
         }
     } else {
         // Single-line rendering for normal plots
-        for (uint32_t i = 0; i < plot->data_buffer->count; i++) {
-            uint32_t idx = (plot->data_buffer->tail + i) % plot->data_buffer->size;
-            double value = plot->data_buffer->data[idx];
+        for (uint32_t i = 0; i < data_count; i++) {
+            double value = temp_buffer[i];
 
             // Map oldest (i=0) to leftmost, newest (i=count-1) to rightmost
-            int32_t plot_x = x + width - 2 - (plot->data_buffer->count - 1 - i);
+            int32_t plot_x = x + width - 2 - (data_count - 1 - i);
             int32_t plot_bottom = plot_y + plot_height - 2;
 
             if (value < 0) {
@@ -285,8 +306,6 @@ void plot_draw(plot_t *plot, renderer_t *renderer, font_t *font,
             }
         }
     }
-    
-    mutex_unlock(plot->data_buffer->mutex);
     
     // Universal stats formatting - handle per-value units or single unit
     char stats_text[128];

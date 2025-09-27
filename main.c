@@ -3,6 +3,7 @@
 #include <string.h>
 #include <signal.h>
 #include <unistd.h>
+#include <stdatomic.h>
 
 #include "platform.h"
 #include "graphics.h"
@@ -101,7 +102,6 @@ int main(int argc, char *argv[]) {
     while (running) {
         if (!plot_system_update(plot_system)) {
             printf("Window closed, exiting immediately...\n");
-            // Exit immediately without waiting for threads
             exit(0);
         }
 
@@ -114,15 +114,11 @@ int main(int argc, char *argv[]) {
     }
     printf("Render loop ended after %u frames\n", frame_count);
 
-    // Stop the render timer
     graphics_stop_render_timer();
-
-    data_collector_stop(data_collector);
-    data_collector_destroy(data_collector);
-    plot_system_destroy(plot_system);
-    config_destroy(config);
     graphics_cleanup();
     platform_cleanup();
+
+    exit(0);
     
     return 0;
 }
