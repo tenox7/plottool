@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include "config.h"
 #include "ini_parser.h"
 #include "default_config.h"
