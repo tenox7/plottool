@@ -1,10 +1,57 @@
 #include "config.h"
 #include "ini_parser.h"
+#include "default_config.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <unistd.h>
+#endif
 
 static config_t *global_config = NULL;
+
+static char *create_temp_config_file(void) {
+    static char temp_path[256];
+    FILE *f;
+
+#ifdef _WIN32
+    char temp_dir[256];
+    DWORD len = GetTempPathA(sizeof(temp_dir), temp_dir);
+    if (len == 0) {
+        strcpy(temp_dir, "C:\\TEMP\\");
+    }
+
+    if (GetTempFileNameA(temp_dir, "plt", 0, temp_path) == 0) {
+        return NULL;
+    }
+
+    f = fopen(temp_path, "w");
+    if (!f) return NULL;
+
+#else
+    const char *tmp_dir = getenv("TMPDIR");
+    if (!tmp_dir) tmp_dir = "/tmp";
+
+    sprintf(temp_path, "%s/plottool_config_XXXXXX", tmp_dir);
+
+    int fd = mkstemp(temp_path);
+    if (fd == -1) return NULL;
+
+    f = fdopen(fd, "w");
+    if (!f) {
+        close(fd);
+        unlink(temp_path);
+        return NULL;
+    }
+#endif
+
+    fprintf(f, "%s", DEFAULT_CONFIG_INI);
+    fclose(f);
+
+    return temp_path;
+}
 
 static color_t parse_color(const char *str) {
     color_t color = {0, 0, 0, 255};
@@ -114,16 +161,60 @@ static void parse_plot_config(ini_file_t *ini, plot_config_t *plot, const char *
     }
 }
 
+static bool is_config_valid(ini_file_t *ini) {
+    if (!ini || ini->section_count == 0) return false;
+
+    for (int i = 0; i < ini->section_count; i++) {
+        if (strcmp(ini->sections[i].section, "global") == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
 config_t *config_load(const char *filename) {
     ini_file_t *ini = ini_parse_file(filename);
+    char *temp_config_path = NULL;
+    bool use_defaults = false;
+
     if (!ini) {
-        fprintf(stderr, "Could not parse config file: %s\n", filename);
-        return NULL;
+        printf("Config file %s not found, using defaults\n", filename);
+        use_defaults = true;
+    } else if (!is_config_valid(ini)) {
+        printf("Config file %s invalid or corrupt, using defaults\n", filename);
+        ini_free(ini);
+        ini = NULL;
+        use_defaults = true;
+    }
+
+    if (use_defaults) {
+        temp_config_path = create_temp_config_file();
+        if (!temp_config_path) {
+            fprintf(stderr, "Could not create temporary config file\n");
+            return NULL;
+        }
+        ini = ini_parse_file(temp_config_path);
+        if (!ini) {
+            fprintf(stderr, "Could not parse temporary config file\n");
+#ifdef _WIN32
+            DeleteFileA(temp_config_path);
+#else
+            unlink(temp_config_path);
+#endif
+            return NULL;
+        }
     }
     
     config_t *config = malloc(sizeof(config_t));
     if (!config) {
         ini_free(ini);
+        if (temp_config_path) {
+#ifdef _WIN32
+            DeleteFileA(temp_config_path);
+#else
+            unlink(temp_config_path);
+#endif
+        }
         return NULL;
     }
     
@@ -201,6 +292,13 @@ config_t *config_load(const char *filename) {
                     if (!plots) {
                         ini_free(ini);
                         free(config);
+                        if (temp_config_path) {
+#ifdef _WIN32
+                            DeleteFileA(temp_config_path);
+#else
+                            unlink(temp_config_path);
+#endif
+                        }
                         return NULL;
                     }
                 }
@@ -238,6 +336,15 @@ config_t *config_load(const char *filename) {
     global_config = config;
 
     ini_free(ini);
+
+    if (temp_config_path) {
+#ifdef _WIN32
+        DeleteFileA(temp_config_path);
+#else
+        unlink(temp_config_path);
+#endif
+    }
+
     return config;
 }
 

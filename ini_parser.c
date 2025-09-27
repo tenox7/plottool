@@ -16,8 +16,13 @@ static void trim_whitespace(char *str) {
 ini_file_t *ini_parse_file(const char *filename) {
     FILE *file = fopen(filename, "r");
     if (!file) return NULL;
-    
+
     ini_file_t *ini = malloc(sizeof(ini_file_t));
+    if (!ini) {
+        fclose(file);
+        return NULL;
+    }
+
     ini->sections = NULL;
     ini->section_count = 0;
     
@@ -26,6 +31,11 @@ ini_file_t *ini_parse_file(const char *filename) {
     ini_section_t *current_section_ptr = NULL;
     
     while (fgets(line, sizeof(line), file)) {
+        if (ferror(file)) {
+            ini_free(ini);
+            fclose(file);
+            return NULL;
+        }
         trim_whitespace(line);
         
         if (line[0] == '\0' || line[0] == ';' || line[0] == '#') {
@@ -39,8 +49,18 @@ ini_file_t *ini_parse_file(const char *filename) {
             
             ini->section_count++;
             ini->sections = realloc(ini->sections, sizeof(ini_section_t) * ini->section_count);
+            if (!ini->sections) {
+                ini_free(ini);
+                fclose(file);
+                return NULL;
+            }
             current_section_ptr = &ini->sections[ini->section_count - 1];
             current_section_ptr->section = malloc(strlen(current_section) + 1);
+            if (!current_section_ptr->section) {
+                ini_free(ini);
+                fclose(file);
+                return NULL;
+            }
             strcpy(current_section_ptr->section, current_section);
             current_section_ptr->pairs = NULL;
             current_section_ptr->pair_count = 0;
@@ -60,10 +80,22 @@ ini_file_t *ini_parse_file(const char *filename) {
             current_section_ptr->pair_count++;
             current_section_ptr->pairs = realloc(current_section_ptr->pairs,
                                                sizeof(ini_pair_t) * current_section_ptr->pair_count);
+            if (!current_section_ptr->pairs) {
+                ini_free(ini);
+                fclose(file);
+                return NULL;
+            }
 
             ini_pair_t *pair = &current_section_ptr->pairs[current_section_ptr->pair_count - 1];
             pair->key = malloc(strlen(key) + 1);
             pair->value = malloc(strlen(value) + 1);
+            if (!pair->key || !pair->value) {
+                free(pair->key);
+                free(pair->value);
+                ini_free(ini);
+                fclose(file);
+                return NULL;
+            }
             strcpy(pair->key, key);
             strcpy(pair->value, value);
 
