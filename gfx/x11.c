@@ -34,6 +34,9 @@ static bool x11_initialized = false;
 static x11_window_context_t *x11_active_window = NULL;
 static bool window_resized = false;
 
+static graphics_event_t pending_event = {GRAPHICS_EVENT_NONE, 0};
+static bool fullscreen_state = false;
+
 static uint32_t frame_count = 0;
 static uint64_t fps_last_time = 0;
 static float current_fps = 0.0f;
@@ -202,6 +205,7 @@ void window_set_fullscreen(window_t *window, bool fullscreen) {
     }
 
     XFlush(ctx->display);
+    fullscreen_state = fullscreen;
 }
 
 void window_get_size(window_t *window, int32_t *width, int32_t *height) {
@@ -463,11 +467,26 @@ bool graphics_poll_events(void) {
                                   x11_active_window->width, x11_active_window->height);
                 }
                 break;
-            case KeyPress:
-                if (XLookupKeysym(&event.xkey, 0) == XK_Escape) {
-                    return false;
+            case KeyPress: {
+                KeySym key = XLookupKeysym(&event.xkey, 0);
+                switch (key) {
+                    case XK_q:
+                        pending_event.type = GRAPHICS_EVENT_QUIT;
+                        pending_event.key = KEY_Q;
+                        break;
+                    case XK_r:
+                        pending_event.type = GRAPHICS_EVENT_REFRESH;
+                        pending_event.key = KEY_R;
+                        break;
+                    case XK_f:
+                        pending_event.type = GRAPHICS_EVENT_FULLSCREEN_TOGGLE;
+                        pending_event.key = KEY_F;
+                        break;
+                    case XK_Escape:
+                        return false;
                 }
                 break;
+            }
             case ClientMessage:
                 if ((unsigned long)event.xclient.data.l[0] == x11_active_window->wm_delete_window) {
                     x11_active_window->should_quit = true;
@@ -495,6 +514,19 @@ bool graphics_wait_events(void) {
     usleep(sleep_us);
 
     return graphics_poll_events();
+}
+
+bool graphics_get_event(graphics_event_t *event) {
+    if (!event) return false;
+
+    if (pending_event.type != GRAPHICS_EVENT_NONE) {
+        *event = pending_event;
+        pending_event.type = GRAPHICS_EVENT_NONE;
+        return true;
+    }
+
+    event->type = GRAPHICS_EVENT_NONE;
+    return false;
 }
 
 void graphics_start_render_timer(int fps) {

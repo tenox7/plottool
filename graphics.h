@@ -48,8 +48,28 @@ void font_draw_text(renderer_t *renderer, font_t *font, color_t color,
                     int32_t x, int32_t y, const char *text);
 void font_get_text_size(font_t *font, const char *text, int32_t *width, int32_t *height);
 
+typedef enum {
+    KEY_Q = 'q',
+    KEY_R = 'r',
+    KEY_F = 'f'
+} key_code_t;
+
+typedef enum {
+    GRAPHICS_EVENT_NONE,
+    GRAPHICS_EVENT_QUIT,
+    GRAPHICS_EVENT_KEY_PRESS,
+    GRAPHICS_EVENT_REFRESH,
+    GRAPHICS_EVENT_FULLSCREEN_TOGGLE
+} graphics_event_type_t;
+
+typedef struct {
+    graphics_event_type_t type;
+    key_code_t key;
+} graphics_event_t;
+
 bool graphics_poll_events(void);
 bool graphics_wait_events(void);
+bool graphics_get_event(graphics_event_t *event);
 void graphics_start_render_timer(int fps);
 void graphics_stop_render_timer(void);
 void graphics_draw_fps_counter(renderer_t *renderer, font_t *font, bool enabled);

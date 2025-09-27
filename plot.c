@@ -504,6 +504,26 @@ bool plot_system_update(plot_system_t *system) {
         return false;
     }
 
+    graphics_event_t event;
+    while (graphics_get_event(&event)) {
+        switch (event.type) {
+            case GRAPHICS_EVENT_QUIT:
+                return false;
+            case GRAPHICS_EVENT_REFRESH:
+                system->needs_redraw = true;
+                break;
+            case GRAPHICS_EVENT_FULLSCREEN_TOGGLE:
+                window_set_fullscreen(system->window, !system->fullscreen);
+                system->fullscreen = !system->fullscreen;
+                system->needs_redraw = true;
+                break;
+            case GRAPHICS_EVENT_NONE:
+            case GRAPHICS_EVENT_KEY_PRESS:
+            default:
+                break;
+        }
+    }
+
     bool window_resized = window_was_resized();
     bool needs_full_render = false;
 

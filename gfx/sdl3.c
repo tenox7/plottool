@@ -10,6 +10,9 @@ static uint32_t frame_count = 0;
 static uint64_t fps_last_time = 0;
 static float current_fps = 0.0f;
 
+static graphics_event_t pending_event = {GRAPHICS_EVENT_NONE, 0};
+static bool fullscreen_state = false;
+
 bool graphics_init(void) {
     if (sdl_initialized) {
         return true;
@@ -66,6 +69,7 @@ void window_destroy(window_t *window) {
 void window_set_fullscreen(window_t *window, bool fullscreen) {
     if (!window) return;
     SDL_SetWindowFullscreen((SDL_Window*)window->handle, fullscreen);
+    fullscreen_state = fullscreen;
 }
 
 void window_get_size(window_t *window, int32_t *width, int32_t *height) {
@@ -233,6 +237,21 @@ bool graphics_wait_events(void) {
                     window_resized = true;
                     break;
                 case SDL_EVENT_KEY_DOWN:
+                    switch (event.key.key) {
+                        case SDLK_q:
+                            pending_event.type = GRAPHICS_EVENT_QUIT;
+                            pending_event.key = KEY_Q;
+                            break;
+                        case SDLK_r:
+                            pending_event.type = GRAPHICS_EVENT_REFRESH;
+                            pending_event.key = KEY_R;
+                            break;
+                        case SDLK_f:
+                            pending_event.type = GRAPHICS_EVENT_FULLSCREEN_TOGGLE;
+                            pending_event.key = KEY_F;
+                            break;
+                    }
+                    break;
                 case SDL_EVENT_MOUSE_BUTTON_DOWN:
                 case SDL_EVENT_MOUSE_MOTION:
                 case SDL_EVENT_USER:
@@ -242,6 +261,19 @@ bool graphics_wait_events(void) {
     }
 
     return true;
+}
+
+bool graphics_get_event(graphics_event_t *event) {
+    if (!event) return false;
+
+    if (pending_event.type != GRAPHICS_EVENT_NONE) {
+        *event = pending_event;
+        pending_event.type = GRAPHICS_EVENT_NONE;
+        return true;
+    }
+
+    event->type = GRAPHICS_EVENT_NONE;
+    return false;
 }
 
 void graphics_start_render_timer(int fps) {

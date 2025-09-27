@@ -13,6 +13,9 @@ static double last_frame_time = 0.0;
 static int target_fps = 60;
 static bool vsync_enabled = true;
 
+static graphics_event_t pending_event = {GRAPHICS_EVENT_NONE, 0};
+static bool fullscreen_state = false;
+
 static uint32_t frame_count = 0;
 static double fps_last_time = 0.0;
 static float current_fps = 0.0f;
@@ -29,6 +32,29 @@ static void window_size_callback(GLFWwindow* window, int width, int height) {
     (void)width;
     (void)height;
     window_resized = true;
+}
+
+static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+    (void)window;
+    (void)scancode;
+    (void)mods;
+
+    if (action == GLFW_PRESS) {
+        switch (key) {
+            case GLFW_KEY_Q:
+                pending_event.type = GRAPHICS_EVENT_QUIT;
+                pending_event.key = KEY_Q;
+                break;
+            case GLFW_KEY_R:
+                pending_event.type = GRAPHICS_EVENT_REFRESH;
+                pending_event.key = KEY_R;
+                break;
+            case GLFW_KEY_F:
+                pending_event.type = GRAPHICS_EVENT_FULLSCREEN_TOGGLE;
+                pending_event.key = KEY_F;
+                break;
+        }
+    }
 }
 
 bool graphics_init(void) {
@@ -86,6 +112,7 @@ window_t *window_create(const char *title, int32_t width, int32_t height) {
     }
 
     glfwSetWindowSizeCallback(glfw_window, window_size_callback);
+    glfwSetKeyCallback(glfw_window, key_callback);
     glfwMakeContextCurrent(glfw_window);
 
     /* Explicitly set window size to ensure it's correct */
@@ -119,6 +146,7 @@ void window_set_fullscreen(window_t *window, bool fullscreen) {
     } else {
         glfwSetWindowMonitor(glfw_window, NULL, 100, 100, 800, 600, 0);
     }
+    fullscreen_state = fullscreen;
 }
 
 void window_get_size(window_t *window, int32_t *width, int32_t *height) {
@@ -421,6 +449,19 @@ bool graphics_wait_events(void) {
     last_frame_time = current_time;
 
     return true;
+}
+
+bool graphics_get_event(graphics_event_t *event) {
+    if (!event) return false;
+
+    if (pending_event.type != GRAPHICS_EVENT_NONE) {
+        *event = pending_event;
+        pending_event.type = GRAPHICS_EVENT_NONE;
+        return true;
+    }
+
+    event->type = GRAPHICS_EVENT_NONE;
+    return false;
 }
 
 void graphics_start_render_timer(int fps) {

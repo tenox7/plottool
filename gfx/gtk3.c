@@ -28,6 +28,9 @@ typedef struct {
 
 static bool gtk_initialized = false;
 static gtk_window_context_t *gtk_active_window = NULL;
+
+static graphics_event_t pending_event = {GRAPHICS_EVENT_NONE, 0};
+static bool fullscreen_state = false;
 static guint gtk_render_timer_id = 0;
 static bool window_resized = false;
 
@@ -51,6 +54,30 @@ static gboolean gtk_render_timer_callback(gpointer user_data) {
     }
 
     return G_SOURCE_CONTINUE;
+}
+
+static gboolean gtk_key_press_callback(GtkWidget *widget, GdkEventKey *event, gpointer user_data) {
+    (void)widget;
+    (void)user_data;
+
+    guint keyval = gdk_keyval_to_lower(event->keyval);
+
+    switch (keyval) {
+        case GDK_KEY_q:
+            pending_event.type = GRAPHICS_EVENT_QUIT;
+            pending_event.key = KEY_Q;
+            break;
+        case GDK_KEY_r:
+            pending_event.type = GRAPHICS_EVENT_REFRESH;
+            pending_event.key = KEY_R;
+            break;
+        case GDK_KEY_f:
+            pending_event.type = GRAPHICS_EVENT_FULLSCREEN_TOGGLE;
+            pending_event.key = KEY_F;
+            break;
+    }
+
+    return TRUE;
 }
 
 bool graphics_init(void) {
@@ -107,6 +134,10 @@ window_t *window_create(const char *title, int32_t width, int32_t height) {
     g_signal_connect(ctx->drawing_area, "draw", G_CALLBACK(gtk_draw_callback), ctx);
     g_signal_connect(ctx->window, "delete-event", G_CALLBACK(gtk_delete_event), ctx);
     g_signal_connect(ctx->drawing_area, "size-allocate", G_CALLBACK(gtk_size_allocate), ctx);
+    g_signal_connect(ctx->window, "key-press-event", G_CALLBACK(gtk_key_press_callback), ctx);
+
+    gtk_widget_set_can_focus(ctx->window, TRUE);
+    gtk_widget_grab_focus(ctx->window);
 
     gtk_widget_show_all(ctx->window);
 
@@ -152,6 +183,7 @@ void window_set_fullscreen(window_t *window, bool fullscreen) {
     } else {
         gtk_window_unfullscreen(GTK_WINDOW(ctx->window));
     }
+    fullscreen_state = fullscreen;
 }
 
 void window_get_size(window_t *window, int32_t *width, int32_t *height) {
@@ -375,6 +407,19 @@ bool graphics_wait_events(void) {
 
     last_frame_time = gtk_get_time_us();
     return true;
+}
+
+bool graphics_get_event(graphics_event_t *event) {
+    if (!event) return false;
+
+    if (pending_event.type != GRAPHICS_EVENT_NONE) {
+        *event = pending_event;
+        pending_event.type = GRAPHICS_EVENT_NONE;
+        return true;
+    }
+
+    event->type = GRAPHICS_EVENT_NONE;
+    return false;
 }
 
 void graphics_start_render_timer(int fps) {
