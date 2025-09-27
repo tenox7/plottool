@@ -175,13 +175,13 @@ void plot_draw(plot_t *plot, renderer_t *renderer, font_t *font,
     
     calculate_stats(plot);
     
-    color_t border_color = (color_t){255, 255, 255, 255};
+    color_t border_color = global_config->border_color;
     renderer_set_color(renderer, border_color);
     
     // Title area (20px height) - just use the auto-generated name
     char title[256];
     snprintf(title, sizeof(title), "%s", plot->config->name);
-    font_draw_text(renderer, font, border_color, x, y + 5, title);
+    font_draw_text(renderer, font, global_config->text_color, x, y + 5, title);
     
     // Plot box area (height - 20px for title - 20px for stats)
     int32_t plot_y = y + 20;
@@ -192,7 +192,7 @@ void plot_draw(plot_t *plot, renderer_t *renderer, font_t *font,
     if (!plot->data_buffer || ringbuf_count(plot->data_buffer) == 0) {
         char stats_text[128];
         snprintf(stats_text, sizeof(stats_text), "No data");
-        font_draw_text(renderer, font, border_color, x, y + height - 15, stats_text);
+        font_draw_text(renderer, font, global_config->text_color, x, y + height - 15, stats_text);
         return;
     }
 
@@ -225,7 +225,7 @@ void plot_draw(plot_t *plot, renderer_t *renderer, font_t *font,
     int32_t scale_text_width, scale_text_height;
     font_get_text_size(font, scale_text, &scale_text_width, &scale_text_height);
     int32_t scale_x = x + width - scale_text_width;
-    font_draw_text(renderer, font, border_color, scale_x, y + 5, scale_text);
+    font_draw_text(renderer, font, global_config->text_color, scale_x, y + 5, scale_text);
 
     double temp_buffer[2048];
     double temp_buffer_secondary[2048];
@@ -333,7 +333,7 @@ void plot_draw(plot_t *plot, renderer_t *renderer, font_t *font,
     int32_t text_width, text_height;
     font_get_text_size(font, stats_text, &text_width, &text_height);
     int32_t text_x = x + width - text_width;
-    font_draw_text(renderer, font, border_color, text_x, y + height - 15, stats_text);
+    font_draw_text(renderer, font, global_config->text_color, text_x, y + height - 15, stats_text);
 
     uint32_t buffer_size = plot->data_buffer->size;
     int32_t refresh_interval = (plot->config->refresh_interval_ms > 0) ?
@@ -357,7 +357,7 @@ void plot_draw(plot_t *plot, renderer_t *renderer, font_t *font,
         snprintf(time_span_text, sizeof(time_span_text), "%ud", days);
     }
 
-    font_draw_text(renderer, font, border_color, x, y + height - 15, time_span_text);
+    font_draw_text(renderer, font, global_config->text_color, x, y + height - 15, time_span_text);
 }
 
 plot_system_t *plot_system_create(config_t *config) {

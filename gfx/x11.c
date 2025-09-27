@@ -63,7 +63,13 @@ static unsigned long x11_create_color(Display *display, int screen, color_t colo
         return xcolor.pixel;
     }
 
-    return BlackPixel(display, screen);
+    /* Fallback based on color brightness */
+    int brightness = (color.r + color.g + color.b) / 3;
+    if (brightness < 128) {
+        return BlackPixel(display, screen);
+    } else {
+        return WhitePixel(display, screen);
+    }
 }
 
 bool graphics_init(void) {
