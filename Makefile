@@ -49,10 +49,10 @@ ifeq ($(GFX),GLFW)
     endif
 endif
 
-# Default to SDL2 if no graphics driver specified
+# Default to GTK3 if no graphics driver specified
 ifeq ($(GFX),)
-    CFLAGS += -DGFX_SDL2 $(shell pkg-config --cflags fontconfig)
-    LDFLAGS += -lSDL2 -lSDL2_ttf $(shell pkg-config --libs fontconfig)
+    CFLAGS += -DGFX_GTK3 $(shell pkg-config --cflags gtk+-3.0)
+    LDFLAGS += $(shell pkg-config --libs gtk+-3.0)
 endif
 
 SOURCES = main.c platform.c graphics.c config.c plot.c ringbuf.c threading.c ini_parser.c datasource.c ds/ping.c ds/sryze-ping.c ds/cpu.c ds/memory.c ds/sine.c ds/snmp.c ds/if_thr.c
