@@ -49,6 +49,9 @@ typedef struct {
     /* Rendering optimization */
     bool needs_redraw;
 
+    /* Fullscreen recheck timing */
+    uint64_t last_fullscreen_check_ms;
+
 } plot_system_t;
 
 plot_system_t *plot_system_create(config_t *config);

@@ -186,6 +186,24 @@ void window_set_fullscreen(window_t *window, bool fullscreen) {
     fullscreen_state = fullscreen;
 }
 
+bool window_is_fullscreen(window_t *window) {
+    if (!window) return false;
+
+    gtk_window_context_t *ctx = (gtk_window_context_t*)window->handle;
+    GdkWindow *gdk_window = gtk_widget_get_window(ctx->window);
+    if (!gdk_window) return false;
+
+    GdkWindowState state = gdk_window_get_state(gdk_window);
+    return (state & GDK_WINDOW_STATE_FULLSCREEN) != 0;
+}
+
+void window_set_topmost(window_t *window, bool topmost) {
+    if (!window) return;
+
+    gtk_window_context_t *ctx = (gtk_window_context_t*)window->handle;
+    gtk_window_set_keep_above(GTK_WINDOW(ctx->window), topmost);
+}
+
 void window_get_size(window_t *window, int32_t *width, int32_t *height) {
     if (!window || !width || !height) return;
 

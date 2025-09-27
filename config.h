@@ -16,6 +16,12 @@ typedef struct {
     int32_t refresh_interval_ms;
 } plot_config_t;
 
+typedef enum {
+    FULLSCREEN_OFF = 0,
+    FULLSCREEN_ON = 1,
+    FULLSCREEN_FORCE = 2
+} fullscreen_mode_t;
+
 typedef struct {
     color_t background_color;
     color_t text_color;
@@ -27,7 +33,7 @@ typedef struct {
     int32_t refresh_interval_ms;
     int32_t window_margin;
     int32_t max_fps;
-    bool fullscreen;
+    fullscreen_mode_t fullscreen;
     bool fps_counter;
 
     plot_config_t *plots;

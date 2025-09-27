@@ -30,6 +30,8 @@ void graphics_cleanup(void);
 window_t *window_create(const char *title, int32_t width, int32_t height);
 void window_destroy(window_t *window);
 void window_set_fullscreen(window_t *window, bool fullscreen);
+bool window_is_fullscreen(window_t *window);
+void window_set_topmost(window_t *window, bool topmost);
 void window_get_size(window_t *window, int32_t *width, int32_t *height);
 bool window_was_resized(void);
 

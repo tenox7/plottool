@@ -149,6 +149,21 @@ void window_set_fullscreen(window_t *window, bool fullscreen) {
     fullscreen_state = fullscreen;
 }
 
+bool window_is_fullscreen(window_t *window) {
+    if (!window) return false;
+
+    GLFWwindow* glfw_window = (GLFWwindow*)window->handle;
+    GLFWmonitor* monitor = glfwGetWindowMonitor(glfw_window);
+    return monitor != NULL;
+}
+
+void window_set_topmost(window_t *window, bool topmost) {
+    if (!window) return;
+
+    GLFWwindow* glfw_window = (GLFWwindow*)window->handle;
+    glfwSetWindowAttrib(glfw_window, GLFW_FLOATING, topmost ? GLFW_TRUE : GLFW_FALSE);
+}
+
 void window_get_size(window_t *window, int32_t *width, int32_t *height) {
     if (!window || !width || !height) return;
     glfwGetWindowSize((GLFWwindow*)window->handle, width, height);

@@ -5,6 +5,7 @@
 #include <sys/time.h>
 #include <sys/select.h>
 #include <unistd.h>
+#include <string.h>
 
 typedef struct {
     Display *display;
@@ -206,6 +207,60 @@ void window_set_fullscreen(window_t *window, bool fullscreen) {
 
     XFlush(ctx->display);
     fullscreen_state = fullscreen;
+}
+
+bool window_is_fullscreen(window_t *window) {
+    if (!window) return false;
+
+    x11_window_context_t *ctx = (x11_window_context_t*)window->handle;
+
+    Atom net_wm_state = XInternAtom(ctx->display, "_NET_WM_STATE", False);
+    Atom net_wm_state_fullscreen = XInternAtom(ctx->display, "_NET_WM_STATE_FULLSCREEN", False);
+
+    Atom type_return;
+    int format_return;
+    unsigned long nitems_return;
+    unsigned long bytes_after_return;
+    unsigned char *prop_return;
+
+    if (XGetWindowProperty(ctx->display, ctx->window, net_wm_state, 0, 1024, False,
+                          XA_ATOM, &type_return, &format_return, &nitems_return,
+                          &bytes_after_return, &prop_return) == Success) {
+
+        Atom *atoms = (Atom*)prop_return;
+        for (unsigned long i = 0; i < nitems_return; i++) {
+            if (atoms[i] == net_wm_state_fullscreen) {
+                XFree(prop_return);
+                return true;
+            }
+        }
+        XFree(prop_return);
+    }
+
+    return false;
+}
+
+void window_set_topmost(window_t *window, bool topmost) {
+    if (!window) return;
+
+    x11_window_context_t *ctx = (x11_window_context_t*)window->handle;
+
+    Atom net_wm_state = XInternAtom(ctx->display, "_NET_WM_STATE", False);
+    Atom net_wm_state_above = XInternAtom(ctx->display, "_NET_WM_STATE_ABOVE", False);
+
+    XEvent event;
+    memset(&event, 0, sizeof(event));
+    event.type = ClientMessage;
+    event.xclient.window = ctx->window;
+    event.xclient.message_type = net_wm_state;
+    event.xclient.format = 32;
+    event.xclient.data.l[0] = topmost ? 1 : 0; /* _NET_WM_STATE_ADD : _NET_WM_STATE_REMOVE */
+    event.xclient.data.l[1] = net_wm_state_above;
+    event.xclient.data.l[2] = 0;
+
+    XSendEvent(ctx->display, DefaultRootWindow(ctx->display), False,
+               SubstructureNotifyMask | SubstructureRedirectMask, &event);
+    XFlush(ctx->display);
 }
 
 void window_get_size(window_t *window, int32_t *width, int32_t *height) {

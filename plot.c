@@ -398,7 +398,13 @@ plot_system_t *plot_system_create(config_t *config) {
     }
 
     // Set fullscreen mode if configured
-    window_set_fullscreen(system->window, config->fullscreen);
+    bool should_be_fullscreen = (config->fullscreen == FULLSCREEN_ON || config->fullscreen == FULLSCREEN_FORCE);
+    window_set_fullscreen(system->window, should_be_fullscreen);
+
+    // Set topmost for fullscreen modes to ensure window stays on front
+    if (should_be_fullscreen) {
+        window_set_topmost(system->window, true);
+    }
 
     system->renderer = renderer_create(system->window);
     if (!system->renderer) {
@@ -417,7 +423,7 @@ plot_system_t *plot_system_create(config_t *config) {
         return NULL;
     }
     
-    system->fullscreen = false;
+    system->fullscreen = should_be_fullscreen;
     system->last_plot_width = 0;
 
     /* Initialize window size cache */
@@ -427,6 +433,9 @@ plot_system_t *plot_system_create(config_t *config) {
 
     /* Initialize rendering optimization */
     system->needs_redraw = true;
+
+    /* Initialize fullscreen recheck timing */
+    system->last_fullscreen_check_ms = platform_get_time_ms();
 
 
 
@@ -515,12 +524,32 @@ bool plot_system_update(plot_system_t *system) {
             case GRAPHICS_EVENT_FULLSCREEN_TOGGLE:
                 window_set_fullscreen(system->window, !system->fullscreen);
                 system->fullscreen = !system->fullscreen;
+                if (system->fullscreen) {
+                    window_set_topmost(system->window, true);
+                } else {
+                    window_set_topmost(system->window, false);
+                }
                 system->needs_redraw = true;
                 break;
             case GRAPHICS_EVENT_NONE:
             case GRAPHICS_EVENT_KEY_PRESS:
             default:
                 break;
+        }
+    }
+
+    /* Handle fullscreen recheck for FULLSCREEN_FORCE mode */
+    if (system->config->fullscreen == FULLSCREEN_FORCE) {
+        uint64_t current_time = platform_get_time_ms();
+        if (current_time - system->last_fullscreen_check_ms >= (uint64_t)system->config->refresh_interval_ms) {
+            bool currently_fullscreen = window_is_fullscreen(system->window);
+            if (!currently_fullscreen) {
+                window_set_fullscreen(system->window, true);
+                window_set_topmost(system->window, true);
+                system->fullscreen = true;
+                system->needs_redraw = true;
+            }
+            system->last_fullscreen_check_ms = current_time;
         }
     }
 

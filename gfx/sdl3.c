@@ -72,6 +72,20 @@ void window_set_fullscreen(window_t *window, bool fullscreen) {
     fullscreen_state = fullscreen;
 }
 
+bool window_is_fullscreen(window_t *window) {
+    if (!window) return false;
+
+    SDL_Window* sdl_window = (SDL_Window*)window->handle;
+    return SDL_GetWindowFlags(sdl_window) & SDL_WINDOW_FULLSCREEN;
+}
+
+void window_set_topmost(window_t *window, bool topmost) {
+    if (!window) return;
+
+    SDL_Window* sdl_window = (SDL_Window*)window->handle;
+    SDL_SetWindowAlwaysOnTop(sdl_window, topmost);
+}
+
 void window_get_size(window_t *window, int32_t *width, int32_t *height) {
     if (!window || !width || !height) return;
     SDL_GetWindowSize((SDL_Window*)window->handle, width, height);
