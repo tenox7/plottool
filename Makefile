@@ -40,6 +40,14 @@ ifeq ($(GFX),GTK3)
     CFLAGS += -DGFX_GTK3 $(shell pkg-config --cflags gtk+-3.0)
     LDFLAGS += $(shell pkg-config --libs gtk+-3.0)
 endif
+ifeq ($(GFX),GLFW)
+    CFLAGS += -DGFX_GLFW $(shell pkg-config --cflags glfw3 freetype2)
+    ifeq ($(UNAME_S),Darwin)
+        LDFLAGS += $(shell pkg-config --libs glfw3 freetype2) -framework Cocoa -framework OpenGL -framework IOKit
+    else
+        LDFLAGS += $(shell pkg-config --libs glfw3 freetype2) -lGL
+    endif
+endif
 
 # Default to SDL2 if no graphics driver specified
 ifeq ($(GFX),)

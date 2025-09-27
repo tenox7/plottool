@@ -12,6 +12,8 @@
 #include "gfx/gtk3.c"
 #elif defined(GFX_X11)
     #include "gfx/x11.c"
+#elif defined(GFX_GLFW)
+    #include "gfx/glfw.c"
 #else
-    #error "No graphics driver selected. Use -DGFX_SDL3, -DGFX_SDL2, -DGFX_GTK3, or -DGFX_X11"
+    #error "No graphics driver selected. Use -DGFX_SDL3, -DGFX_SDL2, -DGFX_GTK3, -DGFX_X11, or -DGFX_GLFW"
 #endif
