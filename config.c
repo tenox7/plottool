@@ -74,10 +74,10 @@ static bool parse_type_target(const char *type, const char *target, plot_config_
     const char *actual_target = target;
 
     if (strcmp(type, "bw") == 0) {
-        if (strncmp(target, "snmp,", 5) == 0) {
-            // Route bw=snmp,host,community,interface to snmp handler
+        if (strncmp(target, "snmp1,", 6) == 0) {
+            // Route bw=snmp1,host,community,interface to snmp handler
             actual_type = "snmp";
-            actual_target = target + 5; // Skip "snmp," prefix
+            actual_target = target + 6; // Skip "snmp1," prefix
         } else {
             // Route bw=local,interface to if_thr handler
             actual_type = "if_thr";

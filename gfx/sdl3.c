@@ -252,15 +252,15 @@ bool graphics_wait_events(void) {
                     break;
                 case SDL_EVENT_KEY_DOWN:
                     switch (event.key.key) {
-                        case SDLK_q:
+                        case SDLK_Q:
                             pending_event.type = GRAPHICS_EVENT_QUIT;
                             pending_event.key = KEY_Q;
                             break;
-                        case SDLK_r:
+                        case SDLK_R:
                             pending_event.type = GRAPHICS_EVENT_REFRESH;
                             pending_event.key = KEY_R;
                             break;
-                        case SDLK_f:
+                        case SDLK_F:
                             pending_event.type = GRAPHICS_EVENT_FULLSCREEN_TOGGLE;
                             pending_event.key = KEY_F;
                             break;
