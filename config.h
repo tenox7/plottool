@@ -28,6 +28,7 @@ typedef struct {
     int32_t window_margin;
     int32_t max_fps;
     bool fullscreen;
+    bool fps_counter;
 
     plot_config_t *plots;
     uint32_t plot_count;

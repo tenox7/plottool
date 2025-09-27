@@ -34,6 +34,16 @@ static bool x11_initialized = false;
 static x11_window_context_t *x11_active_window = NULL;
 static bool window_resized = false;
 
+static uint32_t frame_count = 0;
+static uint64_t fps_last_time = 0;
+static float current_fps = 0.0f;
+
+static uint64_t x11_get_time_ms(void) {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (uint64_t)(tv.tv_sec * 1000 + tv.tv_usec / 1000);
+}
+
 static unsigned long x11_create_color(Display *display, int screen, color_t color) {
     Colormap colormap = DefaultColormap(display, screen);
     XColor xcolor;
@@ -54,6 +64,10 @@ bool graphics_init(void) {
     if (x11_initialized) {
         return true;
     }
+
+    fps_last_time = x11_get_time_ms();
+    frame_count = 0;
+    current_fps = 0.0f;
 
     x11_initialized = true;
     return true;
@@ -491,4 +505,29 @@ bool window_was_resized(void) {
     bool result = window_resized;
     window_resized = false; /* Reset flag */
     return result;
+}
+
+void graphics_draw_fps_counter(renderer_t *renderer, font_t *font, bool enabled) {
+    if (!enabled || !renderer || !font) return;
+
+    frame_count++;
+    uint64_t current_time = x11_get_time_ms();
+
+    if (current_time - fps_last_time >= 1000) {
+        current_fps = (float)frame_count * 1000.0f / (float)(current_time - fps_last_time);
+        frame_count = 0;
+        fps_last_time = current_time;
+    }
+
+    char fps_text[32];
+    snprintf(fps_text, sizeof(fps_text), "FPS: %.1f", current_fps);
+
+    color_t fps_bg_color = {0, 0, 0, 180};
+    color_t fps_text_color = {255, 255, 0, 255};
+    rect_t fps_bg_rect = {5, 5, 80, 20};
+
+    renderer_set_color(renderer, fps_bg_color);
+    renderer_fill_rect(renderer, fps_bg_rect);
+
+    font_draw_text(renderer, font, fps_text_color, 10, 8, fps_text);
 }

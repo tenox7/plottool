@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 #include "plot.h"
 #include "threading.h"
+#include "platform.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -405,6 +406,8 @@ plot_system_t *plot_system_create(config_t *config) {
     system->cached_window_height = 0;
     system->window_size_dirty = true;
 
+
+
     for (uint32_t i = 0; i < system->plot_count; i++) {
         plot_t *plot = &system->plots[i];
         plot->config = &config->plots[i];
@@ -483,8 +486,10 @@ bool plot_system_update(plot_system_t *system) {
         plot_draw(&system->plots[i], system->renderer, system->font,
                   margin, y, system->cached_window_width - (margin * 2), plot_height, system->config);
     }
-    
+
+    graphics_draw_fps_counter(system->renderer, system->font, system->config->fps_counter);
+
     renderer_present(system->renderer);
-    
+
     return true;
 }

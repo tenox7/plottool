@@ -136,6 +136,7 @@ config_t *config_load(const char *filename) {
     config->window_margin = 5;
     config->max_fps = 30;
     config->fullscreen = false;
+    config->fps_counter = false;
     config->plots = NULL;
     config->plot_count = 0;
     
@@ -173,6 +174,9 @@ config_t *config_load(const char *filename) {
     }
     if ((value = ini_get_value(ini, "global", "fullscreen"))) {
         config->fullscreen = (strcmp(value, "true") == 0 || strcmp(value, "1") == 0);
+    }
+    if ((value = ini_get_value(ini, "global", "fps_counter"))) {
+        config->fps_counter = (strcmp(value, "true") == 0 || strcmp(value, "1") == 0);
     }
 
     plot_config_t *plots = NULL;

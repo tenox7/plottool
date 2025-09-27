@@ -52,5 +52,6 @@ bool graphics_poll_events(void);
 bool graphics_wait_events(void);
 void graphics_start_render_timer(int fps);
 void graphics_stop_render_timer(void);
+void graphics_draw_fps_counter(renderer_t *renderer, font_t *font, bool enabled);
 
 #endif

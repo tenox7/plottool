@@ -48,6 +48,12 @@ void platform_sleep(uint32_t milliseconds) {
     usleep(milliseconds * 1000);
 }
 
+uint32_t platform_get_time_ms(void) {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (uint32_t)(tv.tv_sec * 1000 + tv.tv_usec / 1000);
+}
+
 mutex_t *mutex_create(void) {
 #if defined(__unix__) || defined(__unix) || defined(unix) || defined(__APPLE__)
     mutex_t *mutex = malloc(sizeof(mutex_t));

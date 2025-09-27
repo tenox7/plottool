@@ -25,6 +25,7 @@ typedef struct {
 bool platform_init(void);
 void platform_cleanup(void);
 void platform_sleep(uint32_t milliseconds);
+uint32_t platform_get_time_ms(void);
 
 mutex_t *mutex_create(void);
 void mutex_destroy(mutex_t *mutex);
