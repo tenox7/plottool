@@ -55,7 +55,7 @@ shell=ping -i 10 1.1.1.1 | sed -l 's/^.*time=//g; s/ ms//g'
 
 If plottool.ini doesnt exist the app will create you a sample one on start.
 
-The app looks at current working directory then various system config locations like `$XDG_CONFIG_HOME` or `~/Library/Preferences` on macOS.
+The app looks at current working directory then various system config locations like `$XDG_CONFIG_HOME`, eg `$HOME/.config/plottool/plottool.ini` or `~/Library/Preferences` on macOS.
 
 
 
@@ -68,6 +68,24 @@ At present the "max" value and the vertical scale is computed based on runtime m
 PlotTool supports many UI/Graphics backends. 
 
 If you care about low CPU usage, wasted cycles, power usage - prefer GFX=X11, then GTK3. Avoid SDL. Its designed for high performance games running at 60 FPS and it's pretty hard to make it yeld CPU back.
+
+## Devices
+
+I run plottool on Raspberry PI with HyperPixel4 display. To auto start add this:
+
+```
+cat > .config/autostart/plottool.desktop <<EOF
+[Desktop Entry]
+Type=Application
+Name=plottool
+Comment=plottool
+Exec=lxterminal -e plottool
+NotShowIn=GNOME;KDE;XFCE
+EOF
+```
+
+Save config file in `$HOME/.config/plottool/plottool.ini` and `setcap cap_net_raw+ep /usr/local/bin/plottool`
+
 
 ## Development libraries
 

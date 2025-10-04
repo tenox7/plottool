@@ -10,10 +10,14 @@ Features
 
 Data Sources
 
+- look at xosview for old unix data
+- temperatures
+- wifi signal etc
 - snmp v2 getifx
 - own snmp client implementation without net-snmp
 - add clock panel
 - add weird clock using lines 
+
 
 Platforms
 
