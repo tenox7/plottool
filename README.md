@@ -17,6 +17,7 @@ Inspired by SunOS Performance Meter, Plan 9 stats, gping. Not as fancy as Conky.
 - Linux
 - *BSD
 - Solaris/Illumos
+- HP-UX
 
 ## Supported Graphics/UI backends
 
